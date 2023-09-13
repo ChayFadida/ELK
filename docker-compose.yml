@@ -1,0 +1,45 @@
+version: '3'
+services:
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.17.1
+    container_name: filebeat
+    user: root
+    command: filebeat -e --strict.perms=false
+    volumes:
+      - ./filebeat/config/filebeat.yml:/usr/share/filebeat/filebeat.yml
+      - ${NGINX_LOG}:/app/logs/access.log
+    depends_on:
+      - logstash
+
+  logstash:
+    # run on port 5044
+    image: docker.elastic.co/logstash/logstash:7.17.1
+    container_name: logstash
+    volumes:
+      - ./logstash/config/:/usr/share/logstash/config/
+      - ./logstash/pipeline/:/usr/share/logstash/pipeline/
+
+  elasticsearch:
+    # run on port 9200
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.1
+    container_name: elasticsearch
+    volumes:
+      - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+      - ./volumes/elasticsearch:/usr/share/elasticsearch/data
+    restart: always
+    environment:
+      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+      discovery.type: single-node 
+
+  kibana:
+    # run on port 5601
+    image: docker.elastic.co/kibana/kibana:7.17.1
+    container_name: kibana
+    depends_on:
+     - elasticsearch
+
+  nginx:
+    image: harbor.chay-techs.com/elk/nginx:latest
+    ports:
+      - 8085:8080
